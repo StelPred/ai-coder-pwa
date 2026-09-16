@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Coder</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111318">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    margin: 0; padding: 24px;
+    background: #111318; color: #f2f2f2;
+    display: flex; flex-direction: column; min-height: 100vh;
+  }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  p.sub { color: #9a9ea6; margin-top: 0; font-size: 0.9rem; }
+  textarea, input {
+    width: 100%; box-sizing: border-box;
+    background: #1c1f26; color: #f2f2f2;
+    border: 1px solid #2c303a; border-radius: 10px;
+    padding: 12px; font-size: 1rem; margin-bottom: 12px;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  button {
+    background: #4f7cff; color: white; border: none;
+    border-radius: 10px; padding: 14px; font-size: 1rem;
+    font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; }
+  #status { margin-top: 16px; font-size: 0.9rem; color: #9a9ea6; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>🤖 AI Coder</h1>
+  <p class="sub">Send a task. It runs in the background on GitHub.</p>
+
+  <input id="token" type="password" placeholder="Access code" autocomplete="off">
+  <textarea id="prompt" placeholder="e.g. Add a dark mode toggle to the settings page"></textarea>
+  <input id="branch" type="text" placeholder="Base branch (default: main)">
+  <button id="send">Send task</button>
+  <div id="status"></div>
+
+<script>
+  // 👇 Replace with your deployed Cloudflare Worker URL
+  const WORKER_URL = "https://YOUR-WORKER-SUBDOMAIN.workers.dev";
+
+  const el = (id) => document.getElementById(id);
+
+  el("send").addEventListener("click", async () => {
+    const prompt = el("prompt").value.trim();
+    const token = el("token").value;
+    const baseBranch = el("branch").value.trim();
+    const status = el("status");
+
+    if (!prompt) { status.textContent = "Enter a task first."; return; }
+
+    el("send").disabled = true;
+    status.textContent = "Sending…";
+
+    try {
+      const resp = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, token, baseBranch }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        status.textContent = "✅ Queued. Check GitHub for the PR shortly.";
+        el("prompt").value = "";
+      } else {
+        status.textContent = "❌ " + (data.error || "Something went wrong.");
+      }
+    } catch (e) {
+      status.textContent = "❌ Network error: " + e.message;
+    } finally {
+      el("send").disabled = false;
+    }
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js");
+  }
+</script>
+</body>
+</html>
